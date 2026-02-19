@@ -19,13 +19,11 @@
 #   gh aw compile
 # For more information: https://github.com/github/gh-aw/blob/main/.github/aw/github-agentic-workflows.md
 #
-# ROS2 노드 동작 종합 테스트. micromamba + RoboStack으로 ROS2를 설치하고
-# Pub/Sub, Service, Action, Lifecycle, CLI 도구 등 다양한 기능을 검증하여
-# 결과를 GitHub Issue로 보고합니다.
+# ROS2 talker/listener 테스트 후 결과를 GitHub Issue로 보고합니다.
 #
-# frontmatter-hash: 443a4eaff867d2a366a51af6ae1d1ec93ad8ae0c08706cb1fa51f1f9754e91b9
+# frontmatter-hash: a73eec8637bb6106c683298148c6670782445ad15d5feecc4e93020d00dde5cd
 
-name: "ROS2 Node Comprehensive Test"
+name: "ROS2 Test"
 "on":
   workflow_dispatch:
 
@@ -34,7 +32,7 @@ permissions: {}
 concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
-run-name: "ROS2 Node Comprehensive Test"
+run-name: "ROS2 Test"
 
 jobs:
   activation:
@@ -433,7 +431,7 @@ jobs:
               version: "",
               agent_version: "0.0.405",
               cli_version: "v0.42.17",
-              workflow_name: "ROS2 Node Comprehensive Test",
+              workflow_name: "ROS2 Test",
               experimental: false,
               supports_tools_allowlist: true,
               supports_http_transport: true,
@@ -781,7 +779,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: 1
-          GH_AW_WORKFLOW_NAME: "ROS2 Node Comprehensive Test"
+          GH_AW_WORKFLOW_NAME: "ROS2 Test"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -794,7 +792,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "ROS2 Node Comprehensive Test"
+          GH_AW_WORKFLOW_NAME: "ROS2 Test"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -807,7 +805,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "ROS2 Node Comprehensive Test"
+          GH_AW_WORKFLOW_NAME: "ROS2 Test"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_SECRET_VERIFICATION_RESULT: ${{ needs.agent.outputs.secret_verification_result }}
@@ -824,7 +822,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "ROS2 Node Comprehensive Test"
+          GH_AW_WORKFLOW_NAME: "ROS2 Test"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
@@ -844,7 +842,7 @@ jobs:
           GH_AW_COMMENT_ID: ${{ needs.activation.outputs.comment_id }}
           GH_AW_COMMENT_REPO: ${{ needs.activation.outputs.comment_repo }}
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          GH_AW_WORKFLOW_NAME: "ROS2 Node Comprehensive Test"
+          GH_AW_WORKFLOW_NAME: "ROS2 Test"
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_DETECTION_CONCLUSION: ${{ needs.detection.result }}
         with:
@@ -890,8 +888,8 @@ jobs:
       - name: Setup threat detection
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
-          WORKFLOW_NAME: "ROS2 Node Comprehensive Test"
-          WORKFLOW_DESCRIPTION: "ROS2 노드 동작 종합 테스트. micromamba + RoboStack으로 ROS2를 설치하고\nPub/Sub, Service, Action, Lifecycle, CLI 도구 등 다양한 기능을 검증하여\n결과를 GitHub Issue로 보고합니다."
+          WORKFLOW_NAME: "ROS2 Test"
+          WORKFLOW_DESCRIPTION: "ROS2 talker/listener 테스트 후 결과를 GitHub Issue로 보고합니다."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |
@@ -969,7 +967,7 @@ jobs:
     env:
       GH_AW_ENGINE_ID: "copilot"
       GH_AW_WORKFLOW_ID: "ros2-build-test"
-      GH_AW_WORKFLOW_NAME: "ROS2 Node Comprehensive Test"
+      GH_AW_WORKFLOW_NAME: "ROS2 Test"
     outputs:
       create_discussion_error_count: ${{ steps.process_safe_outputs.outputs.create_discussion_error_count }}
       create_discussion_errors: ${{ steps.process_safe_outputs.outputs.create_discussion_errors }}
