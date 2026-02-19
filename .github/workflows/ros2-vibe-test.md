@@ -6,6 +6,9 @@ on:
 
 timeout-minutes: 40
 
+container:
+  image: "osrf/ros:humble-ros-base"
+
 permissions:
   contents: read
   issues: read
@@ -19,6 +22,7 @@ network:
     - "packages.ros.org"
     - "pypi.org"
     - "files.pythonhosted.org"
+    - "release-assets.githubusercontent.com"
 
 tools:
   bash: [":*"]
