@@ -1,7 +1,8 @@
 ---
 description: |
-  ROS2 Jazzy talker/listener 예제를 빌드하고 실행하여
-  정상 동작 여부를 확인한 뒤, 결과를 GitHub Issue로 보고합니다.
+  ROS2 노드 동작 종합 테스트. micromamba + RoboStack으로 ROS2를 설치하고
+  Pub/Sub, Service, Action, Lifecycle, CLI 도구 등 다양한 기능을 검증하여
+  결과를 GitHub Issue로 보고합니다.
 
 on:
   workflow_dispatch:
@@ -26,9 +27,9 @@ safe-outputs:
     labels: [ros2, test-result]
 ---
 
-# ROS2 Talker/Listener Build & Test
+# ROS2 Node Comprehensive Test
 
-Build and run the ROS2 talker/listener demo to verify it works correctly, then report the result as a GitHub issue using the create_issue safe-output tool.
+ROS2를 설치하고 다양한 노드 동작 테스트를 수행한 뒤, 전체 결과를 GitHub Issue로 보고합니다.
 
 ## Critical Environment Constraints
 
@@ -43,103 +44,227 @@ You are running inside a sandboxed chroot container with these hard limitations:
 
 **Allowed network domains include**: `github.com`, `raw.githubusercontent.com`, `conda.anaconda.org`
 
-## Installation Strategy: micromamba from GitHub
+## Phase 1: ROS2 Environment Setup
 
-You MUST use `micromamba` (a standalone C++ binary, NOT Python conda) downloaded from GitHub releases. Do NOT use `micro.mamba.pm` (it is blocked by the firewall). Do NOT use system `conda` (it will fail due to read-only `/dev/shm`).
-
-### Step 1: Download and set up micromamba
+### Step 1: Download micromamba
 
 ```bash
-# Download micromamba from GitHub releases (github.com is allowed)
 curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -o /tmp/micromamba
 chmod +x /tmp/micromamba
-
-# Configure micromamba to use a writable directory (NOT /dev/shm)
 export MAMBA_ROOT_PREFIX="$HOME/micromamba"
 mkdir -p "$MAMBA_ROOT_PREFIX"
 ```
 
-### Step 2: Install ROS2 demo nodes via RoboStack
+Do NOT use `micro.mamba.pm` (blocked by firewall). Do NOT use system `conda` (fails on read-only `/dev/shm`).
+
+### Step 2: Install ROS2 packages
 
 ```bash
-# Create environment with ROS2 from robostack-staging channel on conda-forge
-# Use --no-rc to avoid reading any config files
-# Use -y for non-interactive mode
 /tmp/micromamba create -n ros_env \
   -c conda-forge \
   -c robostack-staging \
   --root-prefix "$MAMBA_ROOT_PREFIX" \
   --no-rc \
   -y \
-  ros-humble-demo-nodes-cpp
-
-# If ros-humble-demo-nodes-cpp is not available, try ros-humble-demo-nodes-py instead
+  ros-humble-demo-nodes-cpp \
+  ros-humble-demo-nodes-py \
+  ros-humble-example-interfaces \
+  ros-humble-lifecycle \
+  ros-humble-ros2cli \
+  ros-humble-ros2topic \
+  ros-humble-ros2node \
+  ros-humble-ros2service \
+  ros-humble-ros2action \
+  ros-humble-ros2param \
+  ros-humble-ros2interface \
+  ros-humble-ros2lifecycle
 ```
 
-**Important**: Try `ros-humble` first (best RoboStack support). If unavailable, try `ros-jazzy`.
+If some packages are not found, install what is available and skip the rest. At minimum `ros-humble-demo-nodes-cpp` and `ros-humble-demo-nodes-py` are required.
 
-### Step 3: Activate and run the test
+### Step 3: Activate environment
 
 ```bash
-# Activate the environment by sourcing the activation script
 eval "$(/tmp/micromamba shell activate -s bash -n ros_env --root-prefix "$MAMBA_ROOT_PREFIX")"
-
-# Verify ROS2 is installed
-which ros2
 ros2 --version
+```
 
-# Start talker in background
-ros2 run demo_nodes_cpp talker > /tmp/talker_output.txt 2>&1 &
-TALKER_PID=$!
+Record the ROS2 version for the report.
 
-# Wait for talker to start publishing
+## Phase 2: Test Execution
+
+Run each test below independently. For each test, record PASS/FAIL and capture output. If a test hangs, use `timeout` to prevent blocking. Always clean up background processes after each test.
+
+### Test 1: Topic Pub/Sub (Talker/Listener)
+
+The fundamental ROS2 communication test.
+
+```bash
+ros2 run demo_nodes_cpp talker > /tmp/test1_talker.txt 2>&1 &
+PID=$!
+sleep 3
+timeout 5 ros2 run demo_nodes_cpp listener > /tmp/test1_listener.txt 2>&1 || true
+kill $PID 2>/dev/null; wait $PID 2>/dev/null
+```
+
+- **PASS condition**: listener output contains "Hello World"
+
+### Test 2: ROS2 CLI Introspection
+
+Verify that ROS2 CLI tools can discover running nodes, topics, and interfaces.
+
+```bash
+# Start a talker node in background
+ros2 run demo_nodes_cpp talker > /dev/null 2>&1 &
+PID=$!
 sleep 3
 
-# Run listener for 5 seconds and capture output
-timeout 5 ros2 run demo_nodes_cpp listener > /tmp/listener_output.txt 2>&1 || true
+# Test CLI tools
+ros2 node list > /tmp/test2_nodes.txt 2>&1
+ros2 topic list > /tmp/test2_topics.txt 2>&1
+ros2 topic info /chatter > /tmp/test2_topic_info.txt 2>&1
+ros2 interface show std_msgs/msg/String > /tmp/test2_interface.txt 2>&1
 
-# Stop talker
-kill $TALKER_PID 2>/dev/null || true
-wait $TALKER_PID 2>/dev/null || true
+kill $PID 2>/dev/null; wait $PID 2>/dev/null
 ```
 
-### Step 4: Check results
+- **PASS condition**: `ros2 node list` shows the talker node AND `ros2 topic list` includes `/chatter`
+
+### Test 3: Service Server/Client
+
+Test ROS2 service request-response pattern.
 
 ```bash
-TALKER_OUT=$(head -20 /tmp/talker_output.txt 2>/dev/null || echo "No output")
-LISTENER_OUT=$(head -20 /tmp/listener_output.txt 2>/dev/null || echo "No output")
+# Start add_two_ints server
+ros2 run demo_nodes_cpp add_two_ints_server > /tmp/test3_server.txt 2>&1 &
+PID=$!
+sleep 3
 
-if echo "$LISTENER_OUT" | grep -q "Hello World"; then
-  RESULT="PASS"
-else
-  RESULT="FAIL"
-fi
+# Call the service
+timeout 10 ros2 service call /add_two_ints example_interfaces/srv/AddTwoInts "{a: 2, b: 3}" > /tmp/test3_client.txt 2>&1 || true
+
+kill $PID 2>/dev/null; wait $PID 2>/dev/null
 ```
 
-### Step 5: Report results via safe-output
+- **PASS condition**: client output contains the sum `5`
 
-Use the `create_issue` safe-output MCP tool (NOT `gh` CLI) to create an issue with:
+### Test 4: Parameter Operations
 
-- **Title**: `ROS2 Talker/Listener Test - <RESULT>`
-- **Body** containing:
-  - Test result: PASS or FAIL
-  - Installation method: micromamba + RoboStack
-  - ROS2 version output
-  - Talker output (first 20 lines)
-  - Listener output (first 20 lines)
-  - Any error messages encountered during installation or execution
+Test ROS2 parameter get/set on a running node.
 
-## Troubleshooting
+```bash
+ros2 run demo_nodes_cpp talker > /dev/null 2>&1 &
+PID=$!
+sleep 3
 
-If micromamba download fails:
-- Verify you are using `github.com` URL, NOT `micro.mamba.pm`
-- Try: `curl -fsSL https://raw.githubusercontent.com/mamba-org/micromamba-releases/main/install.sh` and inspect for alternative download URLs
+ros2 param list /talker > /tmp/test4_param_list.txt 2>&1
+ros2 param get /talker use_sim_time > /tmp/test4_param_get.txt 2>&1
 
-If ROS2 package installation fails:
-- Check if the channel `robostack-staging` has the package: try `ros-humble-demo-nodes-py` (Python version) as fallback
-- Report the exact error in the issue
+kill $PID 2>/dev/null; wait $PID 2>/dev/null
+```
 
-If the test itself fails:
-- Check if `ros2` binary exists and is executable
-- Check if RMW (middleware) is properly configured
-- Report all error output in the issue
+- **PASS condition**: `ros2 param list` returns parameters without error
+
+### Test 5: Python Node (demo_nodes_py)
+
+Verify Python-based ROS2 nodes also work.
+
+```bash
+ros2 run demo_nodes_py talker > /tmp/test5_talker.txt 2>&1 &
+PID=$!
+sleep 3
+timeout 5 ros2 run demo_nodes_py listener > /tmp/test5_listener.txt 2>&1 || true
+kill $PID 2>/dev/null; wait $PID 2>/dev/null
+```
+
+- **PASS condition**: listener output shows received messages
+
+### Test 6: Multi-Node Topic Communication
+
+Run multiple publishers on the same topic and verify a single subscriber receives from all.
+
+```bash
+ros2 run demo_nodes_cpp talker > /dev/null 2>&1 &
+PID1=$!
+ros2 run demo_nodes_py talker > /dev/null 2>&1 &
+PID2=$!
+sleep 3
+
+timeout 5 ros2 topic echo /chatter std_msgs/msg/String > /tmp/test6_echo.txt 2>&1 || true
+
+kill $PID1 $PID2 2>/dev/null; wait $PID1 $PID2 2>/dev/null
+```
+
+- **PASS condition**: `ros2 topic echo` captured messages from the topic
+
+### Test 7: Topic Pub from CLI
+
+Publish a message directly from CLI and verify reception.
+
+```bash
+ros2 run demo_nodes_cpp listener > /tmp/test7_listener.txt 2>&1 &
+PID=$!
+sleep 2
+
+# Publish 3 messages from CLI
+timeout 5 ros2 topic pub -t 3 /chatter std_msgs/msg/String "{data: 'CLI Test Message'}" > /tmp/test7_pub.txt 2>&1 || true
+sleep 2
+
+kill $PID 2>/dev/null; wait $PID 2>/dev/null
+```
+
+- **PASS condition**: listener received "CLI Test Message"
+
+### Test 8: Topic Hz & Bandwidth Measurement
+
+Measure the publishing frequency of a talker node.
+
+```bash
+ros2 run demo_nodes_cpp talker > /dev/null 2>&1 &
+PID=$!
+sleep 3
+
+timeout 5 ros2 topic hz /chatter > /tmp/test8_hz.txt 2>&1 || true
+timeout 5 ros2 topic bw /chatter > /tmp/test8_bw.txt 2>&1 || true
+
+kill $PID 2>/dev/null; wait $PID 2>/dev/null
+```
+
+- **PASS condition**: `ros2 topic hz` reports an average rate (approximately 1 Hz for demo talker)
+
+## Phase 3: Results Report
+
+After all tests complete, use the `create_issue` safe-output MCP tool to create an issue. Do NOT use `gh` CLI.
+
+**Issue title**: `Node Comprehensive Test - X/8 Passed`
+
+**Issue body** should include the following sections formatted in Markdown:
+
+### Summary Table
+
+Create a table with columns: Test Name | Result | Details
+
+| Test | Result | Details |
+|------|--------|---------|
+| 1. Topic Pub/Sub | PASS/FAIL | ... |
+| 2. CLI Introspection | PASS/FAIL | ... |
+| 3. Service Call | PASS/FAIL | ... |
+| 4. Parameters | PASS/FAIL | ... |
+| 5. Python Nodes | PASS/FAIL | ... |
+| 6. Multi-Node Pub | PASS/FAIL | ... |
+| 7. CLI Pub | PASS/FAIL | ... |
+| 8. Topic Hz/BW | PASS/FAIL | ... |
+
+### Environment Info
+
+- ROS2 distro and version
+- Installation method (micromamba + RoboStack)
+- Platform info
+
+### Detailed Output
+
+For each test, include the captured output (first 10 lines each). Wrap outputs in code blocks.
+
+### Errors & Notes
+
+List any errors, warnings, or skipped tests with explanations.
