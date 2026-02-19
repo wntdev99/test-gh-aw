@@ -1,0 +1,123 @@
+name: ROS2 Test Runner
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  ros2-test:
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.test.outputs.result }}
+      ros2_version: ${{ steps.test.outputs.ros2_version }}
+      talker_output: ${{ steps.test.outputs.talker_output }}
+      listener_output: ${{ steps.test.outputs.listener_output }}
+      error_message: ${{ steps.test.outputs.error_message }}
+
+    steps:
+      - name: Setup ROS2 Jazzy repository
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl gnupg lsb-release
+          sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc -o /usr/share/keyrings/ros-archive-keyring.asc
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.asc] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+      - name: Install ROS2 demo nodes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-demo-nodes-cpp
+
+      - name: Run talker/listener test
+        id: test
+        run: |
+          source /opt/ros/jazzy/setup.bash
+
+          ros2_ver=$(ros2 --version 2>&1 || echo "unknown")
+          echo "ros2_version=${ros2_ver}" >> "$GITHUB_OUTPUT"
+
+          # Start talker in background and capture output
+          ros2 run demo_nodes_cpp talker > /tmp/talker_output.txt 2>&1 &
+          TALKER_PID=$!
+          sleep 2
+
+          # Run listener for 5 seconds
+          timeout 5 ros2 run demo_nodes_cpp listener > /tmp/listener_output.txt 2>&1 || true
+
+          # Stop talker
+          kill $TALKER_PID 2>/dev/null || true
+          wait $TALKER_PID 2>/dev/null || true
+
+          TALKER_OUT=$(head -20 /tmp/talker_output.txt)
+          LISTENER_OUT=$(head -20 /tmp/listener_output.txt)
+
+          echo "talker_output<<TALKER_EOF" >> "$GITHUB_OUTPUT"
+          echo "$TALKER_OUT" >> "$GITHUB_OUTPUT"
+          echo "TALKER_EOF" >> "$GITHUB_OUTPUT"
+
+          echo "listener_output<<LISTENER_EOF" >> "$GITHUB_OUTPUT"
+          echo "$LISTENER_OUT" >> "$GITHUB_OUTPUT"
+          echo "LISTENER_EOF" >> "$GITHUB_OUTPUT"
+
+          if echo "$LISTENER_OUT" | grep -q "Hello World"; then
+            echo "result=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=FAIL" >> "$GITHUB_OUTPUT"
+            echo "error_message=Listener did not receive Hello World messages" >> "$GITHUB_OUTPUT"
+          fi
+
+  report:
+    runs-on: ubuntu-latest
+    needs: ros2-test
+    permissions:
+      issues: write
+    steps:
+      - name: Create GitHub Issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ needs.ros2-test.outputs.result }}
+          ROS2_VERSION: ${{ needs.ros2-test.outputs.ros2_version }}
+          TALKER_OUTPUT: ${{ needs.ros2-test.outputs.talker_output }}
+          LISTENER_OUTPUT: ${{ needs.ros2-test.outputs.listener_output }}
+          ERROR_MESSAGE: ${{ needs.ros2-test.outputs.error_message }}
+        run: |
+          if [ "$RESULT" = "PASS" ]; then
+            EMOJI="✅"
+          else
+            EMOJI="❌"
+          fi
+
+          BODY=$(cat <<'BODY_EOF'
+          ## Test Result: ${EMOJI} ${RESULT}
+
+          ### ROS2 Version
+          ```
+          ${ROS2_VERSION}
+          ```
+
+          ### Talker Output
+          ```
+          ${TALKER_OUTPUT}
+          ```
+
+          ### Listener Output
+          ```
+          ${LISTENER_OUTPUT}
+          ```
+          BODY_EOF
+          )
+
+          # Use envsubst for variable expansion
+          BODY=$(echo "$BODY" | envsubst)
+
+          if [ "$RESULT" != "PASS" ] && [ -n "$ERROR_MESSAGE" ]; then
+            BODY="${BODY}
+
+          ### Error
+          ${ERROR_MESSAGE}"
+          fi
+
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "[ros2-test] ROS2 Talker/Listener - ${RESULT} ${EMOJI}" \
+            --label "ros2,test-result" \
+            --body "$BODY"
