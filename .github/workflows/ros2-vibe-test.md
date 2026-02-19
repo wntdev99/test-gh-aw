@@ -7,7 +7,7 @@ on:
 timeout-minutes: 40
 
 container:
-  image: "osrf/ros:humble-ros-base"
+  image: "ros:humble-ros-base"
 
 permissions:
   contents: read

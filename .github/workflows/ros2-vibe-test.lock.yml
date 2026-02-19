@@ -21,7 +21,7 @@
 #
 # ROS2 Humble을 알아서 설치하고 토픽 pub/sub 등 기능들 테스트한 뒤 결과를 이슈로 올립니다.
 #
-# frontmatter-hash: ff873af715f5d2b1dec4e056b6c2058337d7eb03461e5829ad27cfc6d54f4d00
+# frontmatter-hash: f6975cbf9dfc501b5e632d3cda4b3b432aac7e66c8f625d210bf7e025b8aa8c0
 
 name: "ROS2 Vibe Test"
 "on":
@@ -62,7 +62,7 @@ jobs:
     needs: activation
     runs-on: ubuntu-latest
     container:
-      image: osrf/ros:humble-ros-base
+      image: ros:humble-ros-base
     permissions:
       contents: read
       issues: read
