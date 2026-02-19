@@ -19,9 +19,9 @@
 #   gh aw compile
 # For more information: https://github.com/github/gh-aw/blob/main/.github/aw/github-agentic-workflows.md
 #
-# Docker로 ROS2 Humble 환경을 띄워서 토픽 pub/sub 등 이것저것 테스트하고 결과를 이슈로 올립니다.
+# ROS2 Humble 환경을 설치해서 토픽 pub/sub 등 이것저것 테스트하고 결과를 이슈로 올립니다.
 #
-# frontmatter-hash: f4abbd5549e6cd5b8b05fd2167acafe3502155095508b8277392a3ebc80bfc4e
+# frontmatter-hash: 9cf95f1d7a374f8295ad74d38bc97b784ac75be83e445fd0a55e56257b87d9ed
 
 name: "ROS2 Vibe Test"
 "on":
@@ -889,7 +889,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           WORKFLOW_NAME: "ROS2 Vibe Test"
-          WORKFLOW_DESCRIPTION: "Docker로 ROS2 Humble 환경을 띄워서 토픽 pub/sub 등 이것저것 테스트하고 결과를 이슈로 올립니다."
+          WORKFLOW_DESCRIPTION: "ROS2 Humble 환경을 설치해서 토픽 pub/sub 등 이것저것 테스트하고 결과를 이슈로 올립니다."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |
