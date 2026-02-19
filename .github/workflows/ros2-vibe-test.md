@@ -20,6 +20,8 @@ network:
     - "pypi.org"
     - "files.pythonhosted.org"
     - "release-assets.githubusercontent.com"
+    - "python.org"
+    - "www.python.org"
 
 tools:
   bash: [":*"]
