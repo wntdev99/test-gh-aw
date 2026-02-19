@@ -6,9 +6,6 @@ on:
 
 timeout-minutes: 40
 
-container:
-  image: "ros:humble-ros-base"
-
 permissions:
   contents: read
   issues: read
