@@ -1,5 +1,5 @@
 ---
-description: ROS2 Humble 환경을 설치해서 토픽 pub/sub 등 이것저것 테스트하고 결과를 이슈로 올립니다.
+description: ROS2 Humble을 알아서 설치하고 토픽 pub/sub 등 기능들 테스트한 뒤 결과를 이슈로 올립니다.
 
 on:
   workflow_dispatch:
@@ -26,15 +26,10 @@ safe-outputs:
 
 # ROS2 Vibe Test
 
-micromamba + RoboStack으로 ROS2 Humble 환경을 설치하고 이것저것 기능들 테스트해봐.
+현재 환경을 먼저 파악하고, ROS2 Humble을 설치할 수 있는 적절한 방법을 스스로 찾아서 설치해봐.
 
-참고: Docker 데몬은 이 환경에서 사용 불가. GitHub 릴리즈 바이너리도 403으로 막혀있음. micromamba는 `conda.anaconda.org`에서 conda 패키지로 받아야 함.
+## 원하는 것
 
-## 하고 싶은 것
+ROS2 Humble이 돌아가는 환경을 만들어서 토픽 pub/sub이나 서비스 호출 같은 기능들을 좀 테스트해보고, 결과를 이슈로 올려줘.
 
-- micromamba로 ROS2 Humble(`demo_nodes_cpp`, `demo_nodes_py`) 설치
-- 토픽 pub/sub 테스트 (talker/listener)
-- 서비스 호출 같은 것도 해보고
-- 잘 됐는지 결과를 이슈로 올려줘
-
-테스트가 잘 됐든 안 됐든 뭔가 결과가 나오면 바로 이슈로 올려줘.
+잘 됐든 안 됐든 결과가 나오면 바로 이슈로 올려줘.
