@@ -46,21 +46,51 @@ You are running inside a sandboxed chroot container with these hard limitations:
 
 ## Phase 1: ROS2 Environment Setup
 
-### Step 1: Download micromamba
+### Step 1: Download micromamba from conda.anaconda.org
+
+GitHub release downloads are blocked (403). micromamba is available as a conda package on `conda.anaconda.org` which IS accessible. Use Python3 (available in the container) to fetch and extract it:
 
 ```bash
-curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64 -o /tmp/micromamba
-chmod +x /tmp/micromamba
 export MAMBA_ROOT_PREFIX="$HOME/micromamba"
 mkdir -p "$MAMBA_ROOT_PREFIX"
+mkdir -p /tmp/mamba_extract
+
+# Query conda-forge repodata to find the latest micromamba tar.bz2 package name
+MICROMAMBA_PKG=$(python3 - << 'PYEOF'
+import urllib.request, json, bz2, sys
+url = "https://conda.anaconda.org/conda-forge/linux-64/repodata.json.bz2"
+try:
+    with urllib.request.urlopen(url) as r:
+        data = json.loads(bz2.decompress(r.read()))
+    pkgs = [(k, v) for k, v in data['packages'].items() if v['name'] == 'micromamba']
+    pkgs.sort(key=lambda x: [int(i) for i in x[1]['version'].split('.')], reverse=True)
+    print(pkgs[0][0])
+except Exception as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+)
+
+echo "Found micromamba package: $MICROMAMBA_PKG"
+
+# Download the tar.bz2 package directly from conda-forge
+curl -fsSL "https://conda.anaconda.org/conda-forge/linux-64/$MICROMAMBA_PKG" -o /tmp/micromamba-pkg.tar.bz2
+
+# Extract the micromamba binary from the conda package
+tar -xjf /tmp/micromamba-pkg.tar.bz2 -C /tmp/mamba_extract bin/micromamba
+export MICROMAMBA=/tmp/mamba_extract/bin/micromamba
+chmod +x "$MICROMAMBA"
+echo "micromamba version: $($MICROMAMBA --version)"
 ```
 
-Do NOT use `micro.mamba.pm` (blocked by firewall). Do NOT use system `conda` (fails on read-only `/dev/shm`).
+Do NOT use `micro.mamba.pm` or GitHub releases (both 403). Do NOT use system `conda` (broken in this container — `KeyError('user_agent')` and read-only filesystem).
 
 ### Step 2: Install ROS2 packages
 
+Use `$MICROMAMBA` (the extracted binary path), NOT `/tmp/micromamba` which no longer exists.
+
 ```bash
-/tmp/micromamba create -n ros_env \
+$MICROMAMBA create -n ros_env \
   -c conda-forge \
   -c robostack-staging \
   --root-prefix "$MAMBA_ROOT_PREFIX" \
@@ -85,7 +115,7 @@ If some packages are not found, install what is available and skip the rest. At 
 ### Step 3: Activate environment
 
 ```bash
-eval "$(/tmp/micromamba shell activate -s bash -n ros_env --root-prefix "$MAMBA_ROOT_PREFIX")"
+eval "$($MICROMAMBA shell activate -s bash -n ros_env --root-prefix "$MAMBA_ROOT_PREFIX")"
 ros2 --version
 ```
 
